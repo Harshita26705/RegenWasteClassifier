@@ -1,0 +1,10 @@
+0 Nothing
+1 Metal
+2 Plastic
+3 Paper
+4 Ewaste
+5 Leaf
+6 Wood
+7 Food
+8 Hazardous
+9 Fabric
