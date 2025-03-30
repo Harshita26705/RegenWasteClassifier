@@ -2,3 +2,5 @@ cvzone
 h5py
 opencv-python
 numpy
+mediapipe
+tensorflow
