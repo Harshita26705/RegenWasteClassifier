@@ -6,3 +6,4 @@ numpy
 mediapipe
 tensorflow
 gunicorn
+werkzeug
