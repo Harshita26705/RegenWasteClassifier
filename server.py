@@ -8,13 +8,20 @@ app = Flask(__name__)
 
 # Load your ML model
 try:
-    model = tf.keras.models.load_model("waste_classifier.h5")  # Update path if needed
+    model_path = "Model/keras_model.h5"  # Updated model path
+    model = tf.keras.models.load_model(model_path)
     print("✅ Model loaded successfully")
 except Exception as e:
     print("❌ Error loading model:", e)
 
-# Initialize the camera (use a mock or handle errors for cloud environments)
-camera = cv2.VideoCapture(0)  # 0 = default camera, change if needed
+# Initialize the camera (use mock input for cloud environments if camera is unavailable)
+camera = None
+try:
+    camera = cv2.VideoCapture(0)  # 0 = default camera
+    if not camera.isOpened():
+        raise Exception("Camera not available")
+except Exception as e:
+    print("❌ Camera initialization error:", e)
 
 def classify_frame(frame):
     """Process frame and classify waste."""
@@ -26,16 +33,19 @@ def classify_frame(frame):
 def generate_frames():
     """Continuously capture frames and classify."""
     while True:
-        success, frame = camera.read()
-        if not success:
-            break
+        if camera:
+            success, frame = camera.read()
+            if not success:
+                break
+            else:
+                label = classify_frame(frame)  # Get ML prediction
+                _, buffer = cv2.imencode(".jpg", frame)
+                frame_bytes = buffer.tobytes()
+
+                yield (b"--frame\r\n"
+                       b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n")
         else:
-            label = classify_frame(frame)  # Get ML prediction
-            _, buffer = cv2.imencode(".jpg", frame)
-            frame_bytes = buffer.tobytes()
-            
-            yield (b"--frame\r\n"
-                   b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n")
+            break
 
 @app.route("/")
 def home():
@@ -45,15 +55,18 @@ def home():
 @app.route("/video_feed")
 def video_feed():
     """Stream live camera feed."""
-    return Response(generate_frames(), mimetype="multipart/x-mixed-replace; boundary=frame")
+    if camera:
+        return Response(generate_frames(), mimetype="multipart/x-mixed-replace; boundary=frame")
+    return "Camera is not available", 500
 
 @app.route("/classify", methods=["GET"])
 def classify():
     """Classify waste from the latest camera frame."""
-    success, frame = camera.read()
-    if success:
-        label = classify_frame(frame)
-        return jsonify({"classification": str(label)})
+    if camera:
+        success, frame = camera.read()
+        if success:
+            label = classify_frame(frame)
+            return jsonify({"classification": str(label)})
     return jsonify({"error": "Camera not available"}), 500
 
 if __name__ == "__main__":
